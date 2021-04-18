@@ -16,11 +16,7 @@ public class Main {
                         // массива, а значит данные будут отличаться при использовании дробления
             System.out.println("Test_2");
             test2();    // Поэтому поэксперементировал немного.. убрал дробление по копиям т.к. массивы - ссылочный тип
-        }catch (InterruptedException ex){}
-
-
-
-
+        }catch (InterruptedException ignored){}
 
     }
 
@@ -34,6 +30,9 @@ public class Main {
         new TestThreads().doubleThread();
     }
 
+
+
+    /// Для первой реализации
     public static void singleThread() {
         float[] arr = new float[size];
         Arrays.fill(arr, 1);
