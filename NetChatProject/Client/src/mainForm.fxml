@@ -5,7 +5,7 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
-<GridPane fx:id="parentBox" fx:controller="Controller"
+<GridPane fx:id="parentBox" fx:controller="ChatController"
           xmlns:fx="http://javafx.com/fxml" alignment="center" hgap="10" vgap="10">
     <TextArea
             fx:id="allMessages"
