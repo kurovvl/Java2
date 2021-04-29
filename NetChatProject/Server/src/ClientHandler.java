@@ -20,7 +20,7 @@ public class ClientHandler {
             this.socket = socket;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
-            socket.setSoTimeout(10 * 1000); // Включаем таймаут
+            socket.setSoTimeout(120 * 1000); // Включаем таймаут
             new Thread(() -> {
                 try {
 
