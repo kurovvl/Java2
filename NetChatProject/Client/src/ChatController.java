@@ -1,3 +1,4 @@
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
@@ -7,6 +8,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.GridPane;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
@@ -38,14 +40,24 @@ public class ChatController {
     private void initialize() throws IOException {
         try {
             openLoginWindow();
-            openConnection();
-            addCloseListener();
+            if (!AuthController.isConnected()) {
+                Platform.runLater(() -> {
+                    Platform.exit();
+                    System.exit(0);
+                });
+            } else {
+
+                Main.mainStage.show();
+                Main.mainStage.setTitle(Main.mainStage.getTitle() + " (" + Config.nick + ")");
+                openConnection();
+                addCloseListener();
+                //Stage window = (Stage) sendBtn.getScene().getWindow();
+                //window.show();
+
+
+            }
         } catch (IOException e) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Ошибка подключения");
-            alert.setHeaderText("Сервер не работает");
-            alert.setContentText("Не забудь включить сервер!");
-            alert.showAndWait();
+            new Alerts().showAlert("Ошибка подключения", "Сервер не работает", "Не забудь включить сервер!", Alert.AlertType.ERROR);
             e.printStackTrace();
             throw e;
         }
@@ -53,11 +65,11 @@ public class ChatController {
 
     private void openLoginWindow() throws IOException {
         Parent root = FXMLLoader.load(ClassLoader.getSystemResource("auth.fxml"));
-        Statics.loginStage = new Stage();
-        Statics.loginStage.initModality(Modality.APPLICATION_MODAL);
-        Statics.loginStage.setScene(new Scene(root));
-        Statics.loginStage.setTitle("Вход");
-        Statics.loginStage.showAndWait();
+        Stage loginStage = new Stage();
+        loginStage.initModality(Modality.APPLICATION_MODAL);
+        loginStage.setScene(new Scene(root));
+        loginStage.setTitle("Вход");
+        loginStage.showAndWait();
     }
 
     private void openConnection() throws IOException {
@@ -67,7 +79,7 @@ public class ChatController {
 
         new Thread(() -> {
             try {
-                while (continueRead) {
+                while (socket.isConnected()) {
                     System.out.println("Готовы считывать");
                     String strFromServer = in.readUTF();
                     System.out.println("Считал" + strFromServer);
@@ -78,6 +90,12 @@ public class ChatController {
                     allMessages.appendText(strFromServer + "\n");
                 }
             } catch (Exception e) {
+                if (e.getClass().getSimpleName().equals("EOFException"))
+                    Platform.runLater(() -> {
+                        new Alerts().showAlert("Сервер разорвал соединение!");
+                        Platform.exit();
+                        System.exit(0);
+                    });
                 e.printStackTrace();
             } finally {
                 try {
@@ -104,7 +122,6 @@ public class ChatController {
 
     private void closeConnection() {
         try {
-            continueRead = false;
             out.writeUTF("/end");
             socket.close();
             out.close();
@@ -124,17 +141,18 @@ public class ChatController {
                 msgText.requestFocus();
             } catch (IOException e) {
                 e.printStackTrace();
-                Alert alert = new Alert(Alert.AlertType.WARNING);
-                alert.setTitle("Ошибка отправки сообщения");
-                alert.setHeaderText("Ошибка отправки сообщения");
-                alert.setContentText("При отправке сообщения возникла ошибка: " + e.getMessage());
-                alert.show();
+                Platform.runLater(() -> {
+                    new Alerts().showAlert(e.getMessage());
+                });
+
             }
         }
     }
+
     public void onKeyPressedDummy(KeyEvent keyEvent) {
         msgText.requestFocus();
     }
+
     public void onMsgTextKeyPressed(KeyEvent keyEvent) {
         if (keyEvent.getCode() == KeyCode.ENTER && keyEvent.isControlDown())
             onSendBtnClick(null);

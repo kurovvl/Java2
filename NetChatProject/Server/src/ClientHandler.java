@@ -2,78 +2,80 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.Arrays;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 
 public class ClientHandler {
-    private Server myServer;
+    private Long lastMsgTime;
+    private Server server;
     private Socket socket;
     private DataInputStream in;
     private DataOutputStream out;
+    private String name = "";
 
-    private String name;
 
-    public String getName() {
-        return name;
-    }
-
-    public ClientHandler(Server myServer, Socket socket) {
+    public ClientHandler(Socket socket) {
         try {
-            this.myServer = myServer;
+            this.server = Server.getServer();
             this.socket = socket;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
-            this.name = "";
+            socket.setSoTimeout(10 * 1000); // Включаем таймаут
             new Thread(() -> {
                 try {
-                    authentication();
-                    readMessages();
+
+                    auth();
+                    readMsg();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    //e.printStackTrace();
+                    System.out.println(e.getMessage());
+
                 } finally {
                     closeConnection();
                 }
             }).start();
+
         } catch (IOException e) {
-            throw new RuntimeException("Проблемы при создании обработчика клиента");
+            System.out.println("Проблемы при создании обработчика клиента");
+            e.printStackTrace();
         }
     }
 
-    public void authentication() throws IOException {
+    private void auth() throws IOException {
         while (true) {
             String str = in.readUTF();
+            //  /auth login1 pass1
             if (str.startsWith("/auth")) {
-                String[] parts = str.split("\\s");
-                String nick = myServer.getAuthService().getNickByLoginPass(parts[1], parts[2]);
+                String[] parts = str.split(" ");
+                String login = parts[1];
+                String password = parts[2];
+                String nick = server.getAuthService().getNickByLoginPass(login, password);
                 if (nick != null) {
-                    if (!myServer.isNickBusy(nick)) {
+                    if (!server.isNickBusy(nick)) {
+                        socket.setSoTimeout(0); // Отключаем таймаут
                         sendMsg("/authok " + nick);
                         name = nick;
-                        myServer.broadcastMsg(name + " зашел в чат");
-                        myServer.subscribe(this);
+                        server.broadcastMsg(name + " зашел в чат");
+                        server.subscribe(this);
                         return;
                     } else {
                         sendMsg("Учетная запись уже используется");
                     }
                 } else {
+                    if (!server.isNickBusy(nick)) {
+                        sendMsg("/authok " + nick);
+                        name = "Инкогнито";
+                        server.broadcastMsg(name + " зашел в чат");
+                        server.subscribe(this);
+                        return;
+                    } else {
+                        sendMsg("Учетная запись уже используется");
+                    }
                     sendMsg("Неверные логин/пароль");
                 }
+            } else {
+                sendMsg("Перед тем как отправлять сообщения авторизуйтесь через команду </auth login1 pass1>");
             }
-        }
-    }
-
-    public void readMessages() throws IOException {
-        while (true) {
-            String strFromClient = in.readUTF();
-            System.out.println("от " + name + ": " + strFromClient);
-            if (strFromClient.equals("/end")) {
-                return;
-            }
-            if (strFromClient.startsWith("/w")){
-                var splits = strFromClient.split(" ");
-                if (splits.length > 2)
-                    myServer.sendTo(splits[1], strFromClient.substring(splits[1].length() + 4)); // а как задать массив, но не весь, в stringjoin, например?
-            }else
-            myServer.broadcastMsg(name + ": " + strFromClient);
         }
     }
 
@@ -85,9 +87,38 @@ public class ClientHandler {
         }
     }
 
+    public void readMsg() throws IOException {
+        while (socket.isConnected()) {
+            String strFromClient = in.readUTF();
+
+            if (lastMsgTime != null && System.currentTimeMillis() - lastMsgTime < 10000) {
+                server.sendMsgToClient(this, getName(), "Незарегистрированным пользователям нельзя отправлять сообщение чаще, чем раз в 10 секунд");
+                continue;
+            }
+            lastMsgTime = System.currentTimeMillis();
+
+            System.out.println("от " + name + ": " + strFromClient);
+            if (strFromClient.startsWith("/")) {
+                if (strFromClient.equals("/end")) {
+                    return;
+                }
+                //   /w nickTo msg...
+                if (strFromClient.startsWith("/w ")) {
+                    String[] parts = strFromClient.split(" ");
+                    String nickTo = parts[1];
+                    String msg = strFromClient.substring(3 + nickTo.length() + 1);
+                    server.sendMsgToClient(this, nickTo, msg);
+                }
+                continue;
+            }
+            server.broadcastMsg(name + ": " + strFromClient);
+        }
+    }
+
     public void closeConnection() {
-        myServer.unsubscribe(this);
-        myServer.broadcastMsg(name + " вышел из чата");
+        System.out.println("close connection");
+        server.unsubscribe(this);
+        server.broadcastMsg(name + " вышел из чата");
         try {
             in.close();
         } catch (IOException e) {
@@ -104,5 +135,8 @@ public class ClientHandler {
             e.printStackTrace();
         }
     }
-}
 
+    public String getName() {
+        return name;
+    }
+}

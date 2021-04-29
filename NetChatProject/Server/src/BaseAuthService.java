@@ -1,44 +1,30 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class BaseAuthService implements AuthService {
-    private class Entry {
-        private String login;
-        private String pass;
-        private String nick;
-
-        public Entry(String login, String pass, String nick) {
-            this.login = login;
-            this.pass = pass;
-            this.nick = nick;
-        }
-    }
-
-    private List<Entry> entries;
+    Map<String, User> users;
 
     @Override
     public void start() {
-        System.out.println("Сервис аутентификации запущен");
+        users = new HashMap<>();
+        users.put("login1", new User("login1", "pass1", "nick1"));
+        users.put("login2", new User("login2", "pass2", "nick2"));
+        users.put("login3", new User("login3", "pass3", "nick3"));
+    }
+
+    @Override
+    public String getNickByLoginPass(String login, String password) {
+        User user = users.get(login);
+        if (user != null && user.getPassword().equals(password)) {
+            return user.getNick();
+        }
+        return null;
     }
 
     @Override
     public void stop() {
-        System.out.println("Сервис аутентификации остановлен");
-    }
-
-
-    public BaseAuthService() {
-        entries = new ArrayList<>();
-        entries.add(new Entry("login1", "pass1", "nick1"));
-        entries.add(new Entry("login2", "pass2", "nick2"));
-        entries.add(new Entry("login3", "pass3", "nick3"));
-    }
-
-    @Override
-    public String getNickByLoginPass(String login, String pass) {
-        for (Entry o : entries) {
-            if (o.login.equals(login) && o.pass.equals(pass)) return o.nick;
-        }
-        return null;
+        System.out.println("Сервис остановился");
     }
 }

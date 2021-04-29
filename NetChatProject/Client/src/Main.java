@@ -18,6 +18,6 @@ public class Main extends Application {
         primaryStage.setTitle("Сетевой чат");
         primaryStage.setScene(new Scene(root, 610, 275));
         primaryStage.setResizable(false);
-        primaryStage.show();
+        //primaryStage.show();
     }
 }
